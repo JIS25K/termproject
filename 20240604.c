@@ -22,12 +22,16 @@ typedef struct {
 Queue ready_queue;
 Queue waiting_queue;
 
+char *algo[7] = {"FCFS", "SJF", "Priority", "RR", "preemptive SJF", "preemptive Priority", "Exit"};
+
 int process_num; 
 
 Process ori[MAX_PROCESSES]; 
 Process p[MAX_PROCESSES]; 
 
 int no_print = 0;
+
+
 
 void create_process(int num_processes) {
     for (int i = 0; i < num_processes; i++) {
@@ -49,7 +53,13 @@ void Config() {
 
 void schedule(void){
     int sch;
+    while(1){
+        scanf("%d", &sch);
 
+        if(sch == 7) break;
+
+        copy_process();
+    }
     switch (sch)
     {
     case 1:
@@ -323,7 +333,6 @@ void preemptive_Priority(void){
     int cur = -1; 
     int cur_started = 0; 
 
-
     while(finished < process_num){
         int next = find_highest(time, cur); 
 
@@ -388,5 +397,29 @@ int find_highest(int time, int cur){
     return idx;
 }
 
-void Evaluation();
-void BestScheduling();
+void Evaluation() {
+    int min_wait_idx = -1, min_turn_idx = -1; 
+    for(int i=0; i<6; i++){
+        float avg_wait, avg_turn;
+
+        if(turnaround_time[i] == 0) continue;
+
+        avg_wait = (float)waiting_time[i]/process_num;
+        avg_turn = (float)turnaround_time[i]/process_num;
+        
+        if(min_wait_idx == -1 || waiting_time[i] < waiting_time[min_wait_idx]) min_wait_idx = i;
+        if(min_turn_idx == -1 || turnaround_time[i] < turnaround_time[min_turn_idx]) min_turn_idx = i;
+    }
+
+    if(min_wait_idx != -1){
+        printf("\nMinimum waiting time algorithm : %s\n", algo[min_wait_idx]);
+        printf("Minimum turnaround time algorithm : %s\n", algo[min_turn_idx]);
+    }
+}
+
+
+int main() {
+    create_proces();
+    schedule();
+    Evaluation();
+}
