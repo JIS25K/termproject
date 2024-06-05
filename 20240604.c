@@ -1,7 +1,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
-#define MAX_PROCESSES 100
+#define MAX_PROCESSES 30
+
 
 typedef struct {
     int pid;
@@ -26,34 +27,31 @@ char *algo[7] = {"FCFS", "SJF", "Priority", "RR", "preemptive SJF", "preemptive 
 
 int process_num; 
 
-Process ori[MAX_PROCESSES]; 
+Process original[MAX_PROCESSES]; 
 Process p[MAX_PROCESSES]; 
 
 int no_print = 0;
 
+void create_process(int process_num) {
 
+    printf("프로세스의 수를 입력하시오(1~%d): ", MAX_PROCESSES);
+    scanf("%d", &process_num);
 
-void create_process(int num_processes) {
-    for (int i = 0; i < num_processes; i++) {
+    for (int i = 0; i <process_num; i++) {
         Process p;
-        printf("Enter pid %d: ", i + 1);
+        printf("pid를 입력하시오 %d: ", i + 1);
         scanf("%d", &p.pid);
         p.cpuburst = rand() % 20 + 1;
         p.ioburst = rand() % 10 + 1;
         p.arrival = rand() % 50;
         p.priority = rand() % 10 + 1;
-        ready_queue.processes[ready_queue.size++] = p;
     }
-}
-
-void Config() {
-    ready_queue.size = 0;
-    waiting_queue.size = 0;
 }
 
 void schedule(void){
     int sch;
     while(1){
+        printf("사용할 스케쥴링 기법을 선택해주세요, 1:FCFS, 2:SJF, 3:Priority, 4:RR, 5:preemtive_SJF, 6:preemtive_Priority");
         scanf("%d", &sch);
 
         if(sch == 7) break;
@@ -85,7 +83,7 @@ void schedule(void){
 
 void copy_process(void){
     for(int i=0; i<process_num; i++)
-        p[i] = ori[i];
+        p[i] = original[i];
 }
 
 void print_Gantt(int start, int end, int idx){
@@ -94,162 +92,181 @@ void print_Gantt(int start, int end, int idx){
     printf("%d~%d: ", start, end);
 
     if(idx == -1) printf("IDLE\n"); 
-    else printf("[process %d] used CPU\n", ori[idx].pid); 
+    else printf("[process %d] used CPU\n", original[idx].pid); 
 }
 
-void FCFS(void){
+int select_next_process_FCFS(int time) {
+    int idx = -1;
+    for(int i = 0; i < process_num; i++) {
+        if(p[i].cpuburst <= 0) continue; 
+        if(idx == -1 || p[i].arrival < p[idx].arrival) idx = i; 
+    }
+    return idx;
+}
+
+void FCFS(void) {
     int time = 0; 
     int finished = 0; 
 
-    while(finished < process_num){
-        int idx = -1;
-        
-        for(int i=0; i<process_num; i++){
-            if(!p[i].cpuburst) continue;
-            
-            if(idx == -1 || p[i].arrival < p[idx].arrival) 
-                idx = i;
-        }
+    while(finished < process_num) {
+        int idx = select_next_process_FCFS(time);
 
-        if(p[idx].arrival > time){ 
+        if(p[idx].arrival > time) { 
             print_Gantt(time, p[idx].arrival, -1);
             time = p[idx].arrival;
         }
 
         print_Gantt(time, time + p[idx].cpuburst, idx);
-
         waiting_time[0] += (time - p[idx].arrival);
         turnaround_time[0] += (time - p[idx].arrival + p[idx].cpuburst);
-
         time += p[idx].cpuburst;
-        p[idx].cpuburst = 0;
+        p[idx].cpuburst = 0; 
         finished++;
     }
 }
 
-void SJF(void){
+
+int select_next_process_SJF(int time) {
+    int idx = -1;
+
+    for(int i = 0; i < process_num; i++) {
+        if(p[i].cpuburst <= 0) continue;
+
+        if(p[i].arrival <= time) {
+            if(idx == -1 || p[i].cpuburst < p[idx].cpuburst || (p[i].cpuburst == p[idx].cpuburst && p[i].arrival < p[idx].arrival)) {
+                idx = i;
+            }
+        }
+    }
+
+    if(idx == -1) {
+        for(int i = 0; i < process_num; i++) {
+            if(p[i].cpuburst <= 0) continue;
+
+            if(idx == -1 || p[i].arrival < p[idx].arrival || (p[i].arrival == p[idx].arrival && p[i].cpuburst < p[idx].cpuburst)) {
+                idx = i;
+            }
+        }
+    }
+
+    return idx;
+}
+
+void SJF(void) {
     int time = 0; 
     int finished = 0; 
 
-    while(finished < process_num){
-        int idx = -1;
+    while(finished < process_num) {
+        int idx = select_next_process_SJF(time);
 
-        for(int i=0; i<process_num; i++){
-            if(!p[i].cpuburst) continue;
-
-            if(p[i].arrival <= time) 
-                if(idx == -1 || p[i].cpuburst< p[idx].cpuburst || (p[i].cpuburst == p[idx].cpuburst && p[i].arrival < p[idx].arrival))
-                    idx = i; 
-        }
-        
-        if(idx == -1){ 
-            for(int i=0; i<process_num; i++){ 
-                if(!p[i].cpuburst) continue;
-
-                if(idx == -1 || p[i].arrival < p[idx].arrival || (p[i].arrival == p[idx].arrival && p[i].cpuburst < p[idx].cpuburst))
-                    idx = i;
-            }
-
+        if(p[idx].arrival > time) { 
             print_Gantt(time, p[idx].arrival, -1); 
             time = p[idx].arrival;
         }
 
         print_Gantt(time, time + p[idx].cpuburst, idx);
-
         waiting_time[1] += (time - p[idx].arrival);
         turnaround_time[1] += (time - p[idx].arrival + p[idx].cpuburst);
-
         time += p[idx].cpuburst;
-        p[idx].cpuburst = 0;
+        p[idx].cpuburst = 0; 
         finished++;
     }
 }
 
-void Priority(void){
+int select_next_process_Priority(int time) {
+    int idx = -1;
+
+    for(int i = 0; i < process_num; i++) {
+        if(p[i].cpuburst <= 0) continue;
+
+        if(p[i].arrival <= time) {
+            if(idx == -1 || p[i].priority > p[idx].priority || (p[i].priority == p[idx].priority && p[i].arrival < p[idx].arrival)) {
+                idx = i;
+            }
+        }
+    }
+
+    if(idx == -1) {
+        for(int i = 0; i < process_num; i++) {
+            if(p[i].cpuburst <= 0) continue;
+
+            if(idx == -1 || p[i].arrival < p[idx].arrival || (p[i].arrival == p[idx].arrival && p[i].priority > p[idx].priority)) {
+                idx = i;
+            }
+        }
+    }
+
+    return idx;
+}
+
+void Priority(void) {
     int time = 0; 
     int finished = 0; 
 
-    while(finished < process_num){
-        int idx = -1;
+    while(finished < process_num) {
+        int idx = select_next_process_Priority(time);
 
-        for(int i=0; i<process_num; i++){
-            if(!p[i].cpuburst) continue;
-
-            if(p[i].arrival <= time)
-                if(idx == -1 || p[i].priority > p[idx].priority || (p[i].priority == p[idx].priority && p[i].arrival < p[idx].arrival))
-                    idx = i; 
-        }
-        
-        if(idx == -1){ 
-            for(int i=0; i<process_num; i++){ 
-                if(!p[i].cpuburst) continue;
-
-                if(idx == -1 || p[i].arrival < p[idx].arrival || (p[i].arrival == p[idx].arrival && p[i].priority > p[idx].priority))
-                    idx = i;
-            }
-
+        if(p[idx].arrival > time) { 
             print_Gantt(time, p[idx].arrival, -1); 
             time = p[idx].arrival;
         }
 
         print_Gantt(time, time + p[idx].cpuburst, idx);
-
         waiting_time[2] += (time - p[idx].arrival);
         turnaround_time[2] += (time - p[idx].arrival + p[idx].cpuburst);
-
         time += p[idx].cpuburst;
-        p[idx].cpuburst = 0;
+        p[idx].cpuburst = 0; 
         finished++;
     }
 }
 
-void RR(void){
+int select_next_process_RR(int time, int process_num, Process p[]) {
+    int idx = -1;
+    
+    for(int i = 0; i < process_num; i++) {
+        if(p[i].cpuburst <= 0) continue; 
+        
+        if(idx == -1 || p[i].arrival < p[idx].arrival) 
+            idx = i;
+    }
+    
+    return idx;
+}
+
+void RR(void) {
     int quantum = 0;
     int time = 0; 
     int finished = 0; 
 
-    if(no_print == 0){ 
+    if(no_print == 0) { 
         printf("RR time quantum: ");
         scanf("%d", &quantum);
     }
 
-    while(finished < process_num){
-        int idx = -1;
+    while(finished < process_num) {
+        int idx = select_next_process_RR(time, process_num, p);
         int end; 
         
-        for(int i=0; i<process_num; i++){
-            if(!p[i].cpuburst) continue;
-            
-            if(idx == -1 || p[i].arrival < p[idx].arrival) 
-                idx = i;
-        }
-
-        if(p[idx].arrival > time){
+        if(p[idx].arrival > time) {
             print_Gantt(time, p[idx].arrival, -1);
             time = p[idx].arrival;
         }
 
-        end = time;
-
         waiting_time[3] += (time - p[idx].arrival);
 
-        if(p[idx].cpuburst <= quantum){ 
-            turnaround_time[3] += (time - p[idx].arrival + p[idx].cpuburst);
-
-            end += p[idx].cpuburst;
+        if(p[idx].cpuburst <= quantum) {
+            end = time + p[idx].cpuburst;
+            turnaround_time[3] += end - p[idx].arrival;
             p[idx].cpuburst = 0;
             finished++;
-        }
-        else{ 
-            turnaround_time[3] += (time - p[idx].arrival + quantum);
-
-            end += quantum;
+        } else {
+            end = time + quantum;
             p[idx].cpuburst -= quantum;
-            p[idx].arrival = end;
+            p[idx].arrival = end; 
+            turnaround_time[3] += end - p[idx].arrival;
         }
 
         print_Gantt(time, end, idx);
-
         time = end; 
     }
 }
@@ -398,22 +415,29 @@ int find_highest(int time, int cur){
 }
 
 void Evaluation() {
-    int min_wait_idx = -1, min_turn_idx = -1; 
-    for(int i=0; i<6; i++){
-        float avg_wait, avg_turn;
+    int min_wait_idx = -1, min_turn_idx = -1;
+    int FLT_MAX;
+    float min_avg_wait = FLT_MAX, min_avg_turn = FLT_MAX; 
 
-        if(turnaround_time[i] == 0) continue;
+    for(int i = 0; i < 6; i++) {
+        if(turnaround_time[i] == 0) continue; 
 
-        avg_wait = (float)waiting_time[i]/process_num;
-        avg_turn = (float)turnaround_time[i]/process_num;
-        
-        if(min_wait_idx == -1 || waiting_time[i] < waiting_time[min_wait_idx]) min_wait_idx = i;
-        if(min_turn_idx == -1 || turnaround_time[i] < turnaround_time[min_turn_idx]) min_turn_idx = i;
+        float avg_wait = (float)waiting_time[i] / process_num;
+        float avg_turn = (float)turnaround_time[i] / process_num;
+
+        if(avg_wait < min_avg_wait) {
+            min_avg_wait = avg_wait;
+            min_wait_idx = i;
+        }
+        if(avg_turn < min_avg_turn) {
+            min_avg_turn = avg_turn;
+            min_turn_idx = i;
+        }
     }
 
-    if(min_wait_idx != -1){
-        printf("\nMinimum waiting time algorithm : %s\n", algo[min_wait_idx]);
-        printf("Minimum turnaround time algorithm : %s\n", algo[min_turn_idx]);
+    if(min_wait_idx != -1) { 
+        printf("waiting time이 가장 작은 알고리즘은 %s\n", algo[min_wait_idx]);
+        printf("turnaround time이 가장 작은 알고리즘은 %s\n", algo[min_turn_idx]);
     }
 }
 
